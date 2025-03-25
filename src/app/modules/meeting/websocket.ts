@@ -31,39 +31,30 @@ interface ClientToServerEvents {
   signal: (toId: string, signal: unknown) => void;
 }
 
-interface InterServerEvents {
-  ping: () => void;
-}
 
-interface SocketData {
-  userId: string;
-  roomId: string;
-}
 
-const roomService = new RoomService();
-
-export const initWebSocket = (server: HttpServer, corsOrigin: string | string[]) => {
-  const io = new Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>(
-    server,
-    {
-      cors: {
-        origin: corsOrigin,
-        methods: ['GET', 'POST'],
-        credentials: true,
-      },
-    }
-  );
+export const initWebSocket = (server: HttpServer, ) => {
+  const io = new Server(server, {
+    cors: {
+      origin: 'http://localhost:3000',
+      methods: ['GET', 'POST'],
+      allowedHeaders: ['socket.io-version'],
+      credentials: true
+    },
+    transports: ['websocket', 'polling'],
+    allowEIO3: true // For Socket.io v2/v3 compatibility
+  });
 
   io.on('connection', (socket: Socket<ClientToServerEvents, ServerToClientEvents>) => {
     console.log('New WebSocket connection:', socket.id);
 
 socket.on('create-room', async (userId, callback) => {
   try {
-    const room = await roomService.createRoom(userId);
+    const room = await RoomService.createRoom(userId);
     // Type Assertion যোগ করুন
     const roomId = (room as IRoom)._id.toString();
     
-    await roomService.updateSocketId(roomId, userId, socket.id);
+    await RoomService.updateSocketId(roomId, userId, socket.id);
     socket.join(roomId);
     callback({ roomId });
   } catch (error) {
@@ -75,7 +66,7 @@ socket.on('create-room', async (userId, callback) => {
     // রুমে যোগদান ইভেন্ট
     socket.on('join-room', async (roomId, userId, callback) => {
       try {
-        const room = await roomService.joinRoom(roomId, userId, socket.id);
+        const room = await RoomService.joinRoom(roomId, userId, socket.id);
         socket.join(roomId);
         socket.data = { userId, roomId };
         
@@ -92,19 +83,19 @@ socket.on('create-room', async (userId, callback) => {
 
         // এডমিন কন্ট্রোল ইভেন্টস
         socket.on('mute-user', async (targetUserId: string) => {
-          const room = await roomService.getRoomById(roomId);
+          const room = await RoomService.getRoomById(roomId);
           if (room?.adminId === userId) {
             io.to(roomId).emit('user-muted', targetUserId);
           }
         });
 
         socket.on('remove-user', async (targetUserId: string) => {
-          const room = await roomService.getRoomById(roomId);
+          const room = await RoomService.getRoomById(roomId);
           if (room?.adminId === userId) {
             const target = room.participants.find((p: IParticipant) => p.userId === targetUserId);
             if (target) {
               io.to(target.socketId).emit('kicked');
-              await roomService.leaveRoom(roomId, targetUserId);
+              await RoomService.leaveRoom(roomId, targetUserId);
               socket.to(roomId).emit('user-disconnected', targetUserId);
             }
           }
@@ -133,7 +124,7 @@ socket.on('disconnect', async () => {
       const participant = typedRoom.participants.find(p => p.socketId === socket.id);
       
       if (participant) {
-        await roomService.leaveRoom(typedRoom._id.toString(), participant.userId);
+        await RoomService.leaveRoom(typedRoom._id.toString(), participant.userId);
         socket.to(typedRoom._id.toString()).emit('user-disconnected', participant.userId);
       }
     }

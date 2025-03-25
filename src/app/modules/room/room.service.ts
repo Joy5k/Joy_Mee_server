@@ -1,8 +1,7 @@
 import { RoomModel, IRoom, IParticipant } from './room.model';
 import { Types } from 'mongoose';
 
-export class RoomService {
-  async createRoom(userId: string): Promise<IRoom> {
+ const  createRoom =async(userId: string): Promise<IRoom>=> {
     const room = new RoomModel({
       adminId: userId,
       participants: [{
@@ -15,12 +14,12 @@ export class RoomService {
     return await room.save();
   }
 
-  async getRoomById(roomId: string): Promise<IRoom | null> {
+ const getRoomById =async(roomId: string): Promise<IRoom | null> =>{
     if (!Types.ObjectId.isValid(roomId)) return null;
     return await RoomModel.findById(roomId).exec();
   }
 
-  async joinRoom(roomId: string, userId: string, socketId: string): Promise<IRoom> {
+  const  joinRoom=async(roomId: string, userId: string, socketId: string): Promise<IRoom> =>{
     const room = await RoomModel.findById(roomId);
     if (!room) throw new Error('Room not found');
 
@@ -35,7 +34,7 @@ export class RoomService {
     return await room.save();
   }
 
-  async leaveRoom(roomId: string, userId: string): Promise<IRoom> {
+  const  leaveRoom=async(roomId: string, userId: string): Promise<IRoom>=> {
     const room = await RoomModel.findById(roomId);
     if (!room) throw new Error('Room not found');
 
@@ -50,10 +49,17 @@ export class RoomService {
     return await room.save();
   }
 
-  async updateSocketId(roomId: string, userId: string, socketId: string): Promise<void> {
+  const  updateSocketId=async(roomId: string, userId: string, socketId: string): Promise<void>=> {
     await RoomModel.updateOne(
       { _id: roomId, 'participants.userId': userId },
       { $set: { 'participants.$.socketId': socketId } }
     );
   }
-}
+
+  export const RoomService={
+    createRoom,
+    getRoomById,
+    joinRoom,
+    leaveRoom,
+    updateSocketId
+  }

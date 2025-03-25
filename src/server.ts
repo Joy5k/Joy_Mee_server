@@ -10,26 +10,33 @@ let server: Server;
 
 async function main() {
   try {
+    // Database connection
     await mongoose.connect(config.database_url as string);
     await RoomModel.createIndexes();
 
+    // Seed super admin
     seedSuperAdmin();
     
+    // Create Express app
     const app = createApp();
-    server = app.listen(config.port, () => {
-      console.log(`App is listening on port ${config.port}`);
-    });
-    const corsOrigin = config.NODE_ENV === 'development' 
-    ? 'https://your-frontend-domain.com' 
-    : 'http://localhost:3000';
-  
-    // Initialize WebSocket server
-    initWebSocket(server,corsOrigin);
     
+    // Create HTTP server
+    server = app.listen(config.port, () => {
+      console.log(`HTTP server listening on port ${config.port}`);
+    });
+
+    
+    // Initialize WebSocket server with the HTTP server
+    initWebSocket(server);
+
+    console.log(`WebSocket server initialized on port ${config.port}`);
+
   } catch (err) {
-    console.log(err);
+    console.error('Server initialization failed:', err);
+    process.exit(1);
   }
 }
+
 
 main();
 

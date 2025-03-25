@@ -1,48 +1,62 @@
 // src/modules/room/room.controller.ts
-import { Request, Response } from 'express';
-import { RoomService } from './room.service';
-import AppError from '../../errors/AppError';
 import httpStatus from 'http-status';
-import { createRoomValidation, joinRoomValidation } from './room.validation';
+import { Request, Response } from 'express';
+import catchAsync from '../../utils/catchAsync';
+import sendResponse from '../../utils/sendResponse';
+import AppError from '../../errors/AppError';
+import { joinRoomValidation } from './room.validation';
+import { RoomService } from './room.service';
 
-export class RoomController {
-  constructor(private readonly roomService: RoomService) {}
 
-  async createRoom(req: Request, res: Response) {
-    const { error } = createRoomValidation.validate(req.body);
-    if (error) return res.status(400).json({ error: error.details[0].message });
+  const createRoom = catchAsync(async (req: Request, res: Response) => {
+    const { userId } = req.body;
+    
+    if (!userId) {
+      throw new AppError(httpStatus.BAD_REQUEST, 'User ID is required');
+    }
 
-    try {
-      const room = await this.roomService.createRoom(req.body.userId);
-      res.status(201).json({
+    const room = await RoomService.createRoom(userId);
+    
+    sendResponse(res, {
+      statusCode: httpStatus.CREATED,
+      success: true,
+      message: 'Room created successfully',
+      data: {
         id: room._id,
         adminId: room.adminId,
         participants: room.participants
-      });
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to create room' });
+      }
+    });
+  });
+
+  const joinRoom = catchAsync(async (req: Request, res: Response) => {
+    const validationResult = joinRoomValidation.safeParse(req.body);
+    
+    if (!validationResult.success) {
+      const errorMessage = validationResult.error.errors
+        .map(err => `${err.path.join('.')} - ${err.message}`)
+        .join(', ');
+      throw new AppError(httpStatus.BAD_REQUEST, errorMessage);
     }
-  }
 
-  async joinRoom(req: Request, res: Response) {
-    const { error } = joinRoomValidation.validate(req.body);
-    if (error) return res.status(400).json({ error: error.details[0].message });
+    const { roomId, userId } = req.body;
+    const socketId = req.headers['x-socket-id'] as string || 'temp-socket-id';
 
-    try {
-      // In real app, socketId would come from WebSocket connection
-      const room = await this.roomService.joinRoom(
-        req.body.roomId,
-        req.body.userId,
-        'temp-socket-id'
-      );
-      
-      res.json({
+    const room = await RoomService.joinRoom(roomId, userId, socketId);
+    
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: 'Joined room successfully',
+      data: {
         id: room._id,
         adminId: room.adminId,
         participants: room.participants
-      });
-    } catch (error: unknown) {
-     throw new AppError(httpStatus.INTERNAL_SERVER_ERROR, 'Failed to join room');
-    }
+      }
+    });
+  });
+
+  export const RoomController={
+    createRoom,
+    joinRoom
   }
-} 
