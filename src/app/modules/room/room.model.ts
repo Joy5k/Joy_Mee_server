@@ -18,7 +18,7 @@ export interface IRoom extends Document {
 
 const ParticipantSchema = new Schema<IParticipant>({
   userId: { type: String, required: true },
-  socketId: { type: String, required: true },
+  socketId: { type: String},
   isAdmin: { type: Boolean, default: false },
   joinedAt: { type: Date, default: Date.now }
 });

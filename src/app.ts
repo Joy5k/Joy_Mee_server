@@ -1,53 +1,40 @@
-// app.ts
 import express, { Application } from 'express';
+import http from 'http';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import globalErrorHandler from './app/middlewares/globalErrorhandler';
 import notFound from './app/middlewares/notFound';
 import router from './app/routes';
+import { initWebSocket } from './app/modules/meeting/websocket';
 
 const createApp = (): Application => {
   const app: Application = express();
+  const server = http.createServer(app);
 
-  // Configure CORS properly
+  // Configure CORS
   const corsOptions = {
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:5000' // Add your backend origin if needed
-    ],
+    origin: 'http://localhost:3000',
     credentials: true,
     allowedHeaders: [
       'Content-Type',
       'Authorization',
       'X-Requested-With',
       'socket.io-version'
-    ],
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
+    ]
   };
 
-  // Apply CORS middleware
+  // Middleware
   app.use(cors(corsOptions));
-  app.options('*', cors(corsOptions)); // Enable pre-flight requests
-
-  // Parsers
   app.use(express.json());
   app.use(cookieParser());
 
-  // Add security headers
-  app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header(
-      'Access-Control-Allow-Headers',
-      'Origin, X-Requested-With, Content-Type, Accept, Authorization'
-    );
-    next();
-  });
+  // WebSocket Initialization (before routes)
+  initWebSocket(server);
 
-  // Application routes
+  // API Routes
   app.use('/api/v1', router);
 
-  // Error handling
+  // Error Handling
   app.use(globalErrorHandler);
   app.use(notFound);
 
